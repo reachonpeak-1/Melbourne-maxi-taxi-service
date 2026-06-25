@@ -5,15 +5,17 @@ html:has(.admin-shell),
 body:has(.admin-shell) {
   margin: 0;
   padding: 0 !important;
-  overflow-x: hidden;
+  overflow: hidden;
+  height: 100%;
   background: #f1f5f9;
 }
 
 /* ── Layout ── */
 .admin-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
+  overflow: hidden;
   background: #f1f5f9;
 }
 
@@ -114,6 +116,8 @@ body:has(.admin-shell) {
   flex: 1;
   min-width: 0;
   overflow-x: hidden;
+  overflow-y: auto;
+  height: 100vh;
 }
 
 /* ── Pages ── */
@@ -1069,6 +1073,13 @@ body:has(.admin-shell) {
 @media (max-width: 680px) {
   .admin-shell {
     flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+
+  .admin-main {
+    height: auto;
+    overflow-y: visible;
   }
 
   /* Show mobile top header */

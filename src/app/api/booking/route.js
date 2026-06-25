@@ -3,7 +3,6 @@ import dns from 'node:dns/promises';
 import { EMAIL, PHONE, PHONE_DISPLAY } from '@/lib/site';
 import { Timestamp } from 'firebase-admin/firestore';
 import { validateEmailBasics, getEmailDomain } from '@/lib/emailValidation';
-import { verifyOtp } from '@/lib/otp';
 import { db } from '@/lib/firebase-admin';
 
 // Confirms the email's domain actually has mail servers (rejects fake/typo domains).
@@ -47,11 +46,8 @@ function buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, pas
         <!-- Header -->
         <tr>
           <td style="background:linear-gradient(135deg,#0a0a0a 0%,#1a1a1a 100%);padding:36px 40px;text-align:center;">
-            <div style="display:inline-block;background:#16a34a;border-radius:8px;padding:6px 14px;margin-bottom:16px;">
-              <span style="color:#fff;font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">✅ Verified Booking</span>
-            </div>
-            <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:800;letter-spacing:-0.02em;line-height:1.2;">MelbourneMaxiTaxi</h1>
-            <p style="margin:8px 0 0;color:rgba(255,255,255,0.55);font-size:14px;">Email verified — genuine booking confirmed via code</p>
+                    <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:800;letter-spacing:-0.02em;line-height:1.2;">MelbourneMaxiTaxi</h1>
+            <p style="margin:8px 0 0;color:rgba(255,255,255,0.55);font-size:14px;">New booking request</p>
           </td>
         </tr>
 
@@ -63,13 +59,6 @@ function buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, pas
         <!-- Body -->
         <tr>
           <td style="background:#ffffff;padding:36px 40px;">
-
-            <!-- Verified status -->
-            <div style="background:rgba(22,163,74,0.08);border:1px solid rgba(22,163,74,0.3);border-radius:12px;padding:16px 20px;margin-bottom:28px;">
-              <p style="margin:0;color:#166534;font-size:14px;line-height:1.65;">
-                <strong>✅ Lead verified.</strong> This customer entered the 6-digit code we emailed them — their email address is real and belongs to them. This is a genuine booking; you can disregard any earlier "⏳ Unverified lead" email for this customer.
-              </p>
-            </div>
 
             <!-- Greeting -->
             <p style="margin:0 0 28px;color:#0f172a;font-size:16px;line-height:1.6;">
@@ -94,7 +83,7 @@ function buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, pas
                 </tr>
                 <tr>
                   <td colspan="2" style="background:#f8fafc;padding:14px 20px;">
-                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Email Address <span style="color:#16a34a;">✅ Verified</span></span>
+                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Email Address</span>
                     <a href="mailto:${email}" style="font-size:15px;font-weight:600;color:#f26522;text-decoration:none;">${email}</a>
                   </td>
                 </tr>
@@ -216,7 +205,7 @@ function buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, pas
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes, website, otpCode, otpToken, otpExpiresAt, tempLeadId } = body;
+    const { name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes, website } = body;
 
     // Server-side Honeypot Check: Silently ignore spam bots
     if (website) {
@@ -237,13 +226,6 @@ export async function POST(request) {
       return Response.json({ error: "This email domain can't receive mail. Please check your email address." }, { status: 400 });
     }
 
-    // Email ownership proof: the 6-digit code we emailed must match the signed token.
-    // This guarantees the inbox is real and belongs to the customer.
-    const otpError = verifyOtp({ email, code: otpCode, expiresAt: otpExpiresAt, token: otpToken });
-    if (otpError) {
-      return Response.json({ error: otpError }, { status: 400 });
-    }
-
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
       console.error('SMTP Error: GMAIL_USER or GMAIL_APP_PASSWORD is not set in environment variables.');
       return Response.json({ error: 'Mail server configuration error. Please check your .env.local file.' }, { status: 500 });
@@ -253,39 +235,27 @@ export async function POST(request) {
       from: `"MelbourneMaxiTaxi Booking" <${process.env.GMAIL_USER}>`,
       to: EMAIL,
       replyTo: email,
-      subject: `✅ Verified Booking: ${pickup} → ${dropoff} — ${name}`,
+      subject: `New Booking: ${pickup} → ${dropoff} — ${name}`,
       html: buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes }),
     });
 
-    // Update Firestore lead to verified
+    // Save booking lead to Firestore
     try {
-      const bookingData = { pickup, dropoff, date, time, vehicle, passengers, babySeat, returnTrip, notes };
-      if (tempLeadId) {
-        await db.collection('leads').doc(tempLeadId).update({
-          status: 'verified',
-          emailVerified: true,
-          name,
-          phone,
-          booking: bookingData,
-        });
-      } else {
-        await db.collection('leads').add({
-          type: 'booking',
-          source: '/book',
-          status: 'verified',
-          emailVerified: true,
-          name,
-          email,
-          phone,
-          booking: bookingData,
-          contact: null,
-          ipLocation: null,
-          submittedFrom: '/book',
-          createdAt: Timestamp.now(),
-        });
-      }
+      await db.collection('leads').add({
+        type: 'booking',
+        source: '/book',
+        status: 'new',
+        name,
+        email,
+        phone,
+        booking: { pickup, dropoff, date, time, vehicle, passengers, babySeat, returnTrip, notes },
+        contact: null,
+        ipLocation: null,
+        submittedFrom: '/book',
+        createdAt: Timestamp.now(),
+      });
     } catch (fsErr) {
-      console.error('Firestore update failed (booking):', fsErr);
+      console.error('Firestore save failed (booking):', fsErr);
     }
 
     return Response.json({ success: true });

@@ -142,12 +142,14 @@ export default function MapPage() {
       );
     });
 
-    const allPoints = [
-      ...visitors.filter(v => typeof v.lat === 'number').map(v => [v.lat, v.lng]),
-      ...leads.filter(l => l.location?.lat).map(l => [l.location.lat, l.location.lng]),
+    // Only fit bounds to Australian coordinates so overseas outliers don't force a world-zoom
+    const isAustralia = (lat, lng) => lat >= -44 && lat <= -10 && lng >= 112 && lng <= 155;
+    const auPoints = [
+      ...visitors.filter(v => typeof v.lat === 'number' && isAustralia(v.lat, v.lng)).map(v => [v.lat, v.lng]),
+      ...leads.filter(l => l.location?.lat && isAustralia(l.location.lat, l.location.lng)).map(l => [l.location.lat, l.location.lng]),
     ];
-    if (allPoints.length > 0) {
-      map.fitBounds(allPoints, { padding: [40, 40], maxZoom: 13 });
+    if (auPoints.length > 0) {
+      map.fitBounds(auPoints, { padding: [40, 40], maxZoom: 13 });
     }
 
     return () => { map.remove(); };
