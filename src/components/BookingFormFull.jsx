@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { PHONE, PHONE_DISPLAY, WHATSAPP_URL } from '@/lib/site';
 import { validateEmailBasics } from '@/lib/emailValidation';
 
@@ -31,6 +32,7 @@ const normalizeAuPhone = (raw) => {
 const isValidAuPhone = (raw) => /^0[2-578]\d{8}$/.test(normalizeAuPhone(raw));
 
 export default function BookingFormFull() {
+  const router = useRouter();
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
@@ -145,21 +147,8 @@ export default function BookingFormFull() {
         throw reqErr;
       }
 
-      setSubmitted(true);
-      setValues(initialValues);
-
-      if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
-        const adsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18217740838';
-        window.gtag('event', 'conversion', {
-          send_to: `${adsId}/CONVERSION_LABEL`,
-          value: 1.0,
-          currency: 'AUD',
-        });
-        window.gtag('event', 'generate_lead', {
-          currency: 'AUD',
-          value: 1.0,
-        });
-      }
+      // Conversion tags fire on /thank-you (Google Ads tracks that URL)
+      router.push('/thank-you');
     } catch (err) {
       // Server or network failure: offer WhatsApp/call so the booking isn't lost
       if (!err.isInputError) setServerFailed(true);
