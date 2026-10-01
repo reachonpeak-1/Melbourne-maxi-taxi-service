@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { PHONE, PHONE_DISPLAY } from '@/lib/site';
+import { PHONE, PHONE_DISPLAY, WHATSAPP_URL } from '@/lib/site';
 import { validateEmailBasics } from '@/lib/emailValidation';
 
 const initialValues = {
@@ -36,6 +36,7 @@ export default function BookingFormFull() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [serverFailed, setServerFailed] = useState(false);
   const [minDate, setMinDate] = useState('');
 
   useEffect(() => {
@@ -113,6 +114,7 @@ export default function BookingFormFull() {
 
     setLoading(true);
     setError('');
+    setServerFailed(false);
 
     try {
       const res = await fetch('/api/booking', {
@@ -138,7 +140,9 @@ export default function BookingFormFull() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Something went wrong');
+        const reqErr = new Error(data.error || 'Something went wrong');
+        reqErr.isInputError = res.status < 500;
+        throw reqErr;
       }
 
       setSubmitted(true);
@@ -157,6 +161,8 @@ export default function BookingFormFull() {
         });
       }
     } catch (err) {
+      // Server or network failure: offer WhatsApp/call so the booking isn't lost
+      if (!err.isInputError) setServerFailed(true);
       setError(err.message || 'Failed to submit booking. Please try again.');
     } finally {
       setLoading(false);
@@ -169,6 +175,7 @@ export default function BookingFormFull() {
     setErrors({});
     setSubmitted(false);
     setError('');
+    setServerFailed(false);
   };
 
   return (
@@ -388,7 +395,33 @@ export default function BookingFormFull() {
               {error && (
                 <div className="field c4">
                   <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '12px 16px', color: '#dc2626', fontWeight: 600, fontSize: '.92rem' }}>
-                    {error}
+                    {serverFailed ? "We couldn't send your booking online. Please send it on WhatsApp or call us." : error}
+                    {serverFailed && (
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                        <a
+                          href={WHATSAPP_URL + '?text=' + encodeURIComponent([
+                            'Booking Request — MelbourneMaxiTaxi', '',
+                            'Name: ' + values.cname,
+                            'Phone: ' + values.cphone,
+                            'Email: ' + values.cemail,
+                            'Pickup: ' + values.pickup,
+                            'Drop-off: ' + values.dropoff,
+                            'Date/Time: ' + values.date + ' ' + values.time,
+                            'Passengers: ' + values.pax,
+                            'Vehicle: ' + values.vehicle,
+                            'Baby seat: ' + values.baby,
+                            'Return trip: ' + values.returnTrip,
+                            values.notes ? 'Notes: ' + values.notes : '',
+                          ].filter(Boolean).join('\n'))}
+                          target="_blank"
+                          rel="noopener"
+                          className="btn btn-primary"
+                        >
+                          Send on WhatsApp
+                        </a>
+                        <a href={`tel:${PHONE}`} className="btn btn-dark">Call {PHONE_DISPLAY}</a>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
