@@ -139,20 +139,8 @@ export async function POST(request) {
       return Response.json({ error: 'Missing required fields.' }, { status: 400 });
     }
 
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-      console.error('SMTP Error: GMAIL_USER or GMAIL_APP_PASSWORD is not set in environment variables.');
-      return Response.json({ error: 'Mail server configuration error. Please check your .env.local file.' }, { status: 500 });
-    }
-
-    await transporter.sendMail({
-      from: `"MelbourneMaxiTaxi Website" <${process.env.GMAIL_USER}>`,
-      to: EMAIL,
-      replyTo: email,
-      subject: `New Enquiry from ${name} — MelbourneMaxiTaxi`,
-      html: buildHtml({ name, email, phone, service, date, message }),
-    });
-
-    // Save contact lead to Firestore
+    // Save to Firestore first so the admin dashboard gets the lead even if email fails
+    let saved = false;
     try {
       await db.collection('leads').add({
         type: 'contact',
@@ -172,8 +160,25 @@ export async function POST(request) {
         submittedFrom: '/contact',
         createdAt: Timestamp.now(),
       });
+      saved = true;
     } catch (fsErr) {
       console.error('Firestore write failed (contact):', fsErr);
+    }
+
+    try {
+      if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+        throw new Error('GMAIL_USER or GMAIL_APP_PASSWORD is not set in environment variables.');
+      }
+      await transporter.sendMail({
+        from: `"MelbourneMaxiTaxi Website" <${process.env.GMAIL_USER}>`,
+        to: EMAIL,
+        replyTo: email,
+        subject: `New Enquiry from ${name} — MelbourneMaxiTaxi`,
+        html: buildHtml({ name, email, phone, service, date, message }),
+      });
+    } catch (mailErr) {
+      console.error('Contact email failed:', mailErr);
+      if (!saved) throw mailErr;
     }
 
     return Response.json({ success: true });

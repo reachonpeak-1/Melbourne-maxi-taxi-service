@@ -226,25 +226,13 @@ export async function POST(request) {
       return Response.json({ error: "This email domain can't receive mail. Please check your email address." }, { status: 400 });
     }
 
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-      console.error('SMTP Error: GMAIL_USER or GMAIL_APP_PASSWORD is not set in environment variables.');
-      return Response.json({ error: 'Mail server configuration error. Please check your .env.local file.' }, { status: 500 });
-    }
-
-    await transporter.sendMail({
-      from: `"MelbourneMaxiTaxi Booking" <${process.env.GMAIL_USER}>`,
-      to: EMAIL,
-      replyTo: email,
-      subject: `New Booking: ${pickup} → ${dropoff} — ${name}`,
-      html: buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes }),
-    });
-
-    // Save booking lead to Firestore
+    // Save to Firestore first so the admin dashboard gets the lead even if email fails
+    let saved = false;
     try {
       await db.collection('leads').add({
         type: 'booking',
         source: '/book',
-        status: 'new',
+        status: 'unverified',
         name,
         email,
         phone,
@@ -254,8 +242,25 @@ export async function POST(request) {
         submittedFrom: '/book',
         createdAt: Timestamp.now(),
       });
+      saved = true;
     } catch (fsErr) {
       console.error('Firestore save failed (booking):', fsErr);
+    }
+
+    try {
+      if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+        throw new Error('GMAIL_USER or GMAIL_APP_PASSWORD is not set in environment variables.');
+      }
+      await transporter.sendMail({
+        from: `"MelbourneMaxiTaxi Booking" <${process.env.GMAIL_USER}>`,
+        to: EMAIL,
+        replyTo: email,
+        subject: `New Booking: ${pickup} → ${dropoff} — ${name}`,
+        html: buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes }),
+      });
+    } catch (mailErr) {
+      console.error('Booking email failed:', mailErr);
+      if (!saved) throw mailErr;
     }
 
     return Response.json({ success: true });

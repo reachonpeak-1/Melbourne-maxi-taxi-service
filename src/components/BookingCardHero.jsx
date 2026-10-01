@@ -38,6 +38,16 @@ export default function BookingCardHero() {
     if (!validate()) return;
 
     const fd = new FormData(e.target);
+
+    // Record the quote for the admin dashboard. Not awaited so window.open
+    // still runs inside the click and isn't blocked as a popup.
+    fetch('/api/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.fromEntries(fd)),
+      keepalive: true,
+    }).catch(() => {});
+
     const lines = [
       'Quick Quote Request — MelbourneMaxiTaxi', '',
       'Pickup: ' + (fd.get('pickup') || ''),
