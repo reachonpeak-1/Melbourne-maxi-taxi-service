@@ -12,11 +12,11 @@ export default function ThankYouPage() {
   useEffect(() => {
     // Fire conversion + lead events on the thank-you view — every successful
     // form submission lands here, so this is the single reliable conversion point.
-    // TODO: replace CONVERSION_LABEL with your real label (Google Ads → Goals → Conversions → Tag setup).
+    // Google Ads conversion action: "Submit lead form (1)"
     if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       const adsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18217740838';
       window.gtag('event', 'conversion', {
-        send_to: `${adsId}/CONVERSION_LABEL`,
+        send_to: `${adsId}/WPyvCNK03owdEKbU8u5D`,
         value: 1.0,
         currency: 'AUD',
       });
