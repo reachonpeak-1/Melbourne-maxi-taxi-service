@@ -109,7 +109,7 @@ export default function PublicLayout({ children }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
       />
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID || GOOGLE_ADS_ID}`}
+        src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID || GA4_ID}`}
         strategy="afterInteractive"
       />
       <Script id="gtag-init" strategy="afterInteractive">
