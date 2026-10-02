@@ -13,7 +13,15 @@ export default function ThankYouPage() {
     // Fire conversion + lead events on the thank-you view — every successful
     // form submission lands here, so this is the single reliable conversion point.
     // Google Ads conversion action: "Submit lead form (1)"
-    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    if (typeof window !== 'undefined') {
+      // On a hard load this effect can run before the gtag-init script, so
+      // queue onto dataLayer — gtag.js replays it once loaded.
+      window.dataLayer = window.dataLayer || [];
+      if (typeof window.gtag !== 'function') {
+        window.gtag = function gtag() {
+          window.dataLayer.push(arguments);
+        };
+      }
       const adsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18217740838';
       window.gtag('event', 'conversion', {
         send_to: `${adsId}/WPyvCNK03owdEKbU8u5D`,
