@@ -147,7 +147,16 @@ export default function BookingFormFull() {
         throw reqErr;
       }
 
-      // Conversion tags fire on /thank-you (Google Ads tracks that URL)
+      // Conversion tags fire on /thank-you only when this one-time id exists,
+      // so refreshing or typing the URL can't create fake conversions.
+      try {
+        const leadId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `lead_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        sessionStorage.setItem('lead_submitted', leadId);
+      } catch {
+        // sessionStorage unavailable — the visit just won't count a conversion.
+      }
       router.push('/thank-you');
     } catch (err) {
       // Server or network failure: offer WhatsApp/call so the booking isn't lost

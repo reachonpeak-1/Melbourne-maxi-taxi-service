@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/repeat-clickers",
+      "schedule": "0 21 * * *"
+    }
+  ]
+}

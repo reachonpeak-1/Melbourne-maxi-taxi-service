@@ -93,6 +93,16 @@ export default function ContactForm() {
       if (!res.ok) throw new Error(data.error || 'Unknown error');
       setStatus('success');
       setForm(initialState);
+      // One-time id lets /thank-you fire the Google Ads conversion exactly
+      // once for this real submission (refreshes won't re-fire it).
+      try {
+        const leadId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `lead_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        sessionStorage.setItem('lead_submitted', leadId);
+      } catch {
+        // sessionStorage unavailable — the visit just won't count a conversion.
+      }
       setTimeout(() => router.push('/thank-you'), 500);
     } catch (err) {
       setStatus('error');

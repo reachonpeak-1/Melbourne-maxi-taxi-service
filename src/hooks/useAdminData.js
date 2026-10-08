@@ -80,6 +80,46 @@ export function useLeads() {
   return { leads, loading, error, refetch: fetchLeads, updateStatus };
 }
 
+export function useFlaggedIps() {
+  const [ips, setIps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchIps = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await adminFetch('/api/admin/repeat-clickers');
+      if (!res.ok) throw new Error('Failed to fetch flagged IPs');
+      const data = await res.json();
+      setIps(data.ips);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchIps(); }, [fetchIps]);
+
+  // action: 'blocked' | 'safe' | 'new' — 'safe' moves the IP to the safe list
+  // and removes it from the flagged list.
+  const markStatus = async (id, action) => {
+    const res = await adminFetch(`/api/admin/repeat-clickers/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action }),
+    });
+    if (!res.ok) throw new Error('Failed to update IP');
+    if (action === 'safe') {
+      setIps((prev) => prev.filter((row) => row.id !== id));
+    } else {
+      setIps((prev) => prev.map((row) => (row.id === id ? { ...row, status: action } : row)));
+    }
+  };
+
+  return { ips, loading, error, refetch: fetchIps, markStatus };
+}
+
 export function useAnalytics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

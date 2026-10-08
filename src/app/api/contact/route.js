@@ -13,7 +13,25 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// HTML-escape user-controlled values before they land in the email markup.
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildHtml({ name, email, phone, service, date, message }) {
+  // Escape everything user-controlled up front; falsy values stay falsy.
+  name = esc(name);
+  email = esc(email);
+  phone = esc(phone);
+  service = esc(service);
+  date = esc(date);
+  message = esc(message);
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

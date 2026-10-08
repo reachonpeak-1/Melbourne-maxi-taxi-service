@@ -1436,3 +1436,114 @@ body:has(.admin-shell) {
     padding-right: 14px;
   }
 }
+
+/* ── Repeat clickers (Ad Clickers) page ── */
+.admin-badge-new {
+  background: rgba(242, 101, 34, 0.12);
+  color: #c2410c;
+}
+
+.admin-badge-blocked {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.admin-ip-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.admin-ip-hint {
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.admin-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  background: #0f172a;
+  border: 1px solid #0f172a;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms ease-out, background 160ms ease;
+}
+
+.admin-copy-btn:hover {
+  background: #1e293b;
+}
+
+.admin-copy-btn:active {
+  transform: scale(0.97);
+}
+
+.admin-copy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-ip-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.84rem;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.admin-ip-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-ip-btn {
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 160ms ease-out, background 160ms ease, border-color 160ms ease;
+}
+
+.admin-ip-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.admin-ip-btn:active {
+  transform: scale(0.97);
+}
+
+.admin-ip-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-ip-btn-danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.admin-ip-btn-danger:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.admin-ip-btn-safe {
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.admin-ip-btn-safe:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
