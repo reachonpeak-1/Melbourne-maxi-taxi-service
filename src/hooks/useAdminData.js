@@ -103,3 +103,45 @@ export function useAnalytics() {
 
   return { data, loading, error };
 }
+
+export function useIpVisitors() {
+  const [ips, setIps] = useState([]);
+  const [trackingStart, setTrackingStart] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchIps = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await adminFetch('/api/admin/ips');
+      if (!res.ok) throw new Error('Failed to fetch IP visitors');
+      const data = await res.json();
+      setIps(data.ips);
+      setTrackingStart(data.trackingStart);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchIps(); }, [fetchIps]);
+
+  const setStatus = async (ipList, status) => {
+    const res = await adminFetch('/api/admin/ips', {
+      method: 'PATCH',
+      body: JSON.stringify({ ips: ipList, status }),
+    });
+    if (!res.ok) throw new Error('Failed to update');
+    const changed = new Set(ipList);
+    setIps((prev) => prev.map((row) => (changed.has(row.ip) ? { ...row, status } : row)));
+  };
+
+  return { ips, trackingStart, loading, error, refetch: fetchIps, setStatus };
+}
+
+export async function fetchIpHits(ip) {
+  const res = await adminFetch(`/api/admin/ips/${encodeURIComponent(ip)}`);
+  if (!res.ok) throw new Error('Failed to fetch visit history');
+  return (await res.json()).hits;
+}

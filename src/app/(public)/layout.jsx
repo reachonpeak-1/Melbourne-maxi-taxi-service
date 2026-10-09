@@ -3,6 +3,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ScrollReveal from '@/components/ScrollReveal';
 import LocationPrompt from '@/components/LocationPrompt';
+import VisitTracker from '@/components/VisitTracker';
 import { SITE_URL, SITE_NAME, PHONE, EMAIL, WHATSAPP_URL } from '@/lib/site';
 
 const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID || 'G-WFKNTPL9LV';
@@ -128,6 +129,7 @@ export default function PublicLayout({ children }) {
       <ScrollReveal />
       <Header />
       <LocationPrompt />
+      <VisitTracker />
       <main>{children}</main>
       <Footer />
       <a className="fab" href={WHATSAPP_URL} target="_blank" rel="noopener" aria-label="WhatsApp">
