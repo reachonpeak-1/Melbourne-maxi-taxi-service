@@ -208,6 +208,17 @@ select.book-control option{background:#1c1c1e;color:#fff}
 .book-submit svg{width:20px;height:20px}
 .book-note{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:.83rem;color:rgba(255,255,255,.5);font-weight:500}
 .book-note svg{width:16px;height:16px;color:#22c55e;flex-shrink:0}
+textarea.book-control{resize:vertical;min-height:76px;line-height:1.5}
+.book-optional{text-transform:none;letter-spacing:0;font-weight:500}
+.book-submit:disabled{opacity:.7;cursor:not-allowed;transform:none}
+.book-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:-8px 0 18px;padding:12px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:var(--r-sm)}
+.book-summary-route{margin:0;color:#fff;font-weight:600;font-size:.9rem;line-height:1.4;overflow-wrap:anywhere}
+.book-summary-meta{margin:3px 0 0;color:rgba(255,255,255,.55);font-size:.82rem}
+.book-summary-edit{flex-shrink:0;background:none;border:none;padding:2px 0;color:var(--accent);font-family:inherit;font-weight:700;font-size:.85rem;cursor:pointer}
+.book-summary-edit:hover{text-decoration:underline}
+.book-alert{margin:4px 0 12px;padding:12px 14px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:var(--r-sm);color:#fca5a5;font-size:.88rem;font-weight:600;line-height:1.5}
+.book-alert-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.book-alert-actions .btn{padding:10px 16px;font-size:.88rem}
 
 /* ---------- Trust strip ---------- */
 .trust-strip{position:relative;z-index:2;background:rgba(255,255,255,.04);border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px)}

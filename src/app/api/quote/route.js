@@ -1,11 +1,23 @@
 import nodemailer from 'nodemailer';
+import dns from 'node:dns/promises';
 import { Timestamp } from 'firebase-admin/firestore';
 import { EMAIL, PHONE, PHONE_DISPLAY } from '@/lib/site';
+import { validateEmailBasics, getEmailDomain } from '@/lib/emailValidation';
 import { db } from '@/lib/firebase-admin';
 
-// Saves the hero "Book your ride" quick-quote to the admin leads list and
-// emails it to the business inbox (same inbox as /api/booking). The customer
-// is sent on to WhatsApp by the client.
+// Saves the hero "Book your ride" quick-quote (trip details from step 1 and
+// contact details from step 2) to the admin leads list and emails it to the
+// business inbox (same inbox as /api/booking).
+
+// Confirms the email's domain actually has mail servers (rejects fake/typo domains).
+async function domainAcceptsMail(domain) {
+  try {
+    const records = await dns.resolveMx(domain);
+    return Array.isArray(records) && records.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -17,11 +29,17 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Every quote field is a single-line input: collapse whitespace (keeps the
-// email subject on one line) and cap the length.
+// Single-line fields: collapse whitespace (keeps the email subject on one
+// line) and cap the length.
 function clean(value, max) {
   if (value === undefined || value === null) return '';
   return String(value).replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+// Notes may span several lines: normalise line endings, trim and cap.
+function cleanNotes(value, max) {
+  if (value === undefined || value === null) return '';
+  return String(value).replace(/\r\n?/g, '\n').trim().slice(0, max);
 }
 
 function esc(value) {
@@ -33,11 +51,18 @@ function esc(value) {
     .replace(/'/g, '&#39;');
 }
 
-function buildQuoteHtml({ pickup, dropoff, date, time, pax, vehicle }) {
+// International digits for tel:/wa.me links (AU local 04xx… becomes 614xx…).
+function toIntlDigits(phone) {
+  const digits = phone.replace(/\D/g, '');
+  return /^0\d{9}$/.test(digits) ? '61' + digits.slice(1) : digits;
+}
+
+function buildQuoteHtml({ name, email, phone, pickup, dropoff, date, time, pax, vehicle, notes }) {
   const parsedDate = date ? new Date(date + 'T00:00:00') : null;
   const dateFormatted = parsedDate && !Number.isNaN(parsedDate.getTime())
     ? parsedDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : date || 'Not specified';
+  const intlPhone = toIntlDigits(phone);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -71,8 +96,33 @@ function buildQuoteHtml({ pickup, dropoff, date, time, pax, vehicle }) {
 
             <!-- Greeting -->
             <p style="margin:0 0 28px;color:#0f172a;font-size:16px;line-height:1.6;">
-              A customer requested a quick quote from the <strong>Book your ride</strong> form on the homepage. Trip details are below.
+              A customer requested a quote from the <strong>Book your ride</strong> form on the homepage. Their details are below.
             </p>
+
+            <!-- Customer Info -->
+            <div style="margin-bottom:24px;">
+              <div style="display:inline-block;background:rgba(242,101,34,0.08);border-radius:6px;padding:4px 12px;margin-bottom:12px;">
+                <span style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#f26522;">Customer Details</span>
+              </div>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+                <tr>
+                  <td style="background:#f8fafc;padding:14px 20px;border-bottom:1px solid #e2e8f0;width:50%;">
+                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Full Name</span>
+                    <span style="font-size:15px;font-weight:600;color:#0f172a;">${esc(name)}</span>
+                  </td>
+                  <td style="background:#f8fafc;padding:14px 20px;border-bottom:1px solid #e2e8f0;border-left:1px solid #e2e8f0;">
+                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Phone Number</span>
+                    <a href="tel:+${intlPhone}" style="font-size:15px;font-weight:600;color:#f26522;text-decoration:none;">${esc(phone)}</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="background:#f8fafc;padding:14px 20px;">
+                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Email Address</span>
+                    <a href="mailto:${esc(email)}" style="font-size:15px;font-weight:600;color:#f26522;text-decoration:none;">${esc(email)}</a>
+                  </td>
+                </tr>
+              </table>
+            </div>
 
             <!-- Trip Info -->
             <div style="margin-bottom:24px;">
@@ -130,12 +180,28 @@ function buildQuoteHtml({ pickup, dropoff, date, time, pax, vehicle }) {
               </table>
             </div>
 
-            <!-- WhatsApp note -->
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 20px;">
-              <p style="margin:0;font-size:14px;color:#166534;line-height:1.6;">
-                This form does not ask for a name or phone number. After tapping <strong>Get Quote Now</strong>, the customer was taken to WhatsApp with these details filled in. If they sent the message, their number is in your WhatsApp chats.
-              </p>
+            ${notes ? `
+            <!-- Notes -->
+            <div style="margin-bottom:24px;">
+              <div style="display:inline-block;background:rgba(242,101,34,0.08);border-radius:6px;padding:4px 12px;margin-bottom:12px;">
+                <span style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#f26522;">Additional Notes</span>
+              </div>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;">
+                <p style="margin:0;font-size:15px;color:#334155;line-height:1.65;">${esc(notes).replace(/\n/g, '<br />')}</p>
+              </div>
             </div>
+            ` : ''}
+
+            <!-- CTA -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;">
+              <tr>
+                <td align="center">
+                  <a href="tel:+${intlPhone}" style="display:inline-block;background:#f26522;color:#ffffff;font-size:14px;font-weight:700;padding:14px 28px;border-radius:10px;text-decoration:none;letter-spacing:0.01em;">📞 Call ${esc(name)}</a>
+                  <span style="display:inline-block;width:12px;"></span>
+                  <a href="https://wa.me/${intlPhone}" style="display:inline-block;background:#25d366;color:#ffffff;font-size:14px;font-weight:700;padding:14px 28px;border-radius:10px;text-decoration:none;letter-spacing:0.01em;">💬 WhatsApp</a>
+                </td>
+              </tr>
+            </table>
 
           </td>
         </tr>
@@ -163,14 +229,34 @@ function buildQuoteHtml({ pickup, dropoff, date, time, pax, vehicle }) {
 export async function POST(request) {
   try {
     const body = await request.json();
+
+    // Server-side Honeypot Check: Silently ignore spam bots
+    if (body.website) {
+      console.warn('Spam submission filtered via quote form honeypot.');
+      return Response.json({ success: true });
+    }
+
     const pickup = clean(body.pickup, 200);
     const dropoff = clean(body.dropoff, 300);
     const datetime = clean(body.datetime, 40);
     const pax = clean(body.pax, 40);
     const vehicle = clean(body.vehicle, 100);
+    const name = clean(body.name, 100);
+    const email = clean(body.email, 254);
+    const phone = clean(body.phone, 30);
+    const notes = cleanNotes(body.notes, 1000);
 
-    if (!dropoff || !datetime) {
+    if (!dropoff || !datetime || !name || !email || !phone) {
       return Response.json({ error: 'Missing required fields.' }, { status: 400 });
+    }
+
+    const emailCheck = validateEmailBasics(email);
+    if (emailCheck.error) {
+      return Response.json({ error: emailCheck.error }, { status: 400 });
+    }
+
+    if (!(await domainAcceptsMail(getEmailDomain(email)))) {
+      return Response.json({ error: "This email domain can't receive mail. Please check your email address." }, { status: 400 });
     }
 
     const [date, time] = datetime.split('T');
@@ -182,9 +268,9 @@ export async function POST(request) {
         type: 'booking',
         source: '/',
         status: 'unverified',
-        name: null,
-        email: null,
-        phone: null,
+        name,
+        email,
+        phone,
         booking: {
           pickup: pickup || null,
           dropoff,
@@ -194,7 +280,7 @@ export async function POST(request) {
           passengers: pax || null,
           babySeat: null,
           returnTrip: null,
-          notes: 'Quick quote from homepage, sent to WhatsApp',
+          notes: notes ? `Quick quote from homepage. Notes: ${notes}` : 'Quick quote from homepage',
         },
         contact: null,
         ipLocation: null,
@@ -213,8 +299,9 @@ export async function POST(request) {
       await transporter.sendMail({
         from: `"MelbourneMaxiTaxi Quote" <${process.env.GMAIL_USER}>`,
         to: EMAIL,
-        subject: `New Quote Request: ${pickup || 'Pickup not set'} → ${dropoff}`,
-        html: buildQuoteHtml({ pickup, dropoff, date, time, pax, vehicle }),
+        replyTo: email,
+        subject: `New Quote Request: ${pickup || 'Pickup not set'} → ${dropoff} — ${name}`,
+        html: buildQuoteHtml({ name, email, phone, pickup, dropoff, date, time, pax, vehicle, notes }),
       });
     } catch (mailErr) {
       console.error('Quote email failed:', mailErr);
