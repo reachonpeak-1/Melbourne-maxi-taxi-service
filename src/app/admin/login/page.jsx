@@ -8,6 +8,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
+import { isAdminEmail } from '@/lib/admin-email';
 import '@/app/globals.css';
 import '../admin.css';
 
@@ -18,10 +19,9 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
   const checkAndRedirect = async (user) => {
-    if (user.email !== adminEmail) {
+    if (!isAdminEmail(user.email)) {
       await signOut(auth);
       setError('Access denied. This panel is restricted to authorised users only.');
       return;

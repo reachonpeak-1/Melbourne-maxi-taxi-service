@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { getAdminEmail, isAdminEmail } from './admin-email';
 
 let adminApp;
 let db;
@@ -47,7 +48,7 @@ async function verifyAdmin(request) {
     const decoded = await getAuth(adminApp).verifyIdToken(token);
     
     const email = decoded.email?.toLowerCase();
-    const expectedEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL)?.toLowerCase();
+    const expectedEmail = getAdminEmail();
     
     console.log('[verifyAdmin] decoded.email=', email, 'expected=', expectedEmail);
     
@@ -56,7 +57,7 @@ async function verifyAdmin(request) {
       return false;
     }
     
-    return email === expectedEmail;
+    return isAdminEmail(email);
   } catch (e) {
     console.log('[verifyAdmin] verifyIdToken THREW:', e.code || '', e.message);
     return false;

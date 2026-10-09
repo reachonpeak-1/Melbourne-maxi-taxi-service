@@ -835,6 +835,10 @@ body:has(.admin-shell) {
   margin-bottom: 28px;
 }
 
+.admin-login-logo .admin-nav-brand {
+  color: #0f172a;
+}
+
 .admin-login-title {
   font-size: 1.5rem;
   font-weight: 800;
