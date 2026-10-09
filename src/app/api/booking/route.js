@@ -25,70 +25,10 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// HTML-escape user-controlled values before they land in the email markup.
-function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// Where the submission came from: IP, approximate location (Vercel geo
-// headers), whether the visitor arrived via Google Ads (_gcl_aw cookie),
-// Melbourne submission time and device. Shown in the booking email and
-// saved on the lead as `ipLocation`.
-function getSubmissionMeta(request) {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded
-    ? forwarded.split(',')[0].trim()
-    : request.headers.get('x-real-ip') || 'unknown';
-
-  let city = request.headers.get('x-vercel-ip-city') || null;
-  if (city) {
-    try {
-      city = decodeURIComponent(city);
-    } catch {
-      // keep raw value
-    }
-  }
-  const region = request.headers.get('x-vercel-ip-country-region') || null;
-  const country = request.headers.get('x-vercel-ip-country') || null;
-  const device = request.headers.get('user-agent') || null;
-
-  const cookieHeader = request.headers.get('cookie') || '';
-  const fromGoogleAds = /(?:^|;\s*)_gcl_aw=/.test(cookieHeader);
-
-  const submittedAt = new Intl.DateTimeFormat('en-AU', {
-    timeZone: 'Australia/Melbourne',
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date());
-
-  return { ip, city, region, country, fromGoogleAds, device, submittedAt };
-}
-
-function buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes, meta }) {
-  // Escape everything user-controlled up front so the template below stays
-  // readable; falsy values stay falsy ('' stays '').
-  name = esc(name);
-  email = esc(email);
-  phone = esc(phone);
-  pickup = esc(pickup);
-  dropoff = esc(dropoff);
-  time = esc(time);
-  passengers = esc(passengers);
-  vehicle = esc(vehicle);
-  babySeat = esc(babySeat);
-  returnTrip = esc(returnTrip);
-  notes = notes ? esc(notes) : notes;
-
+function buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes }) {
   const dateFormatted = date
     ? new Date(date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : 'Not specified';
-
-  const metaLocation = meta ? [meta.city, meta.region, meta.country].filter(Boolean).join(', ') : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -228,43 +168,6 @@ function buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, pas
             </div>
             ` : ''}
 
-            ${meta ? `
-            <!-- Submitted From -->
-            <div style="margin-bottom:24px;">
-              <div style="display:inline-block;background:rgba(242,101,34,0.08);border-radius:6px;padding:4px 12px;margin-bottom:12px;">
-                <span style="font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#f26522;">Submitted From</span>
-              </div>
-              <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
-                <tr>
-                  <td style="background:#f8fafc;padding:14px 20px;border-bottom:1px solid #e2e8f0;width:50%;">
-                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">IP Address</span>
-                    <span style="font-size:14px;font-weight:600;color:#0f172a;font-family:Menlo,Consolas,monospace;">${esc(meta.ip)}</span>
-                  </td>
-                  <td style="background:#f8fafc;padding:14px 20px;border-bottom:1px solid #e2e8f0;border-left:1px solid #e2e8f0;">
-                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Approx. Location</span>
-                    <span style="font-size:14px;font-weight:600;color:#0f172a;">${esc(metaLocation || 'Unknown')}</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="background:#ffffff;padding:14px 20px;border-bottom:1px solid #e2e8f0;width:50%;">
-                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Came From Google Ads</span>
-                    <span style="font-size:14px;font-weight:600;color:${meta.fromGoogleAds ? '#16a34a' : '#64748b'};">${meta.fromGoogleAds ? 'Yes' : 'No'}</span>
-                  </td>
-                  <td style="background:#ffffff;padding:14px 20px;border-bottom:1px solid #e2e8f0;border-left:1px solid #e2e8f0;">
-                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Submitted (Melbourne)</span>
-                    <span style="font-size:14px;font-weight:600;color:#0f172a;">${esc(meta.submittedAt)}</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td colspan="2" style="background:#f8fafc;padding:14px 20px;">
-                    <span style="display:block;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">Device</span>
-                    <span style="font-size:12px;color:#64748b;line-height:1.5;">${esc((meta.device || 'Unknown').slice(0, 220))}</span>
-                  </td>
-                </tr>
-              </table>
-            </div>
-            ` : ''}
-
             <!-- CTA -->
             <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;">
               <tr>
@@ -323,8 +226,6 @@ export async function POST(request) {
       return Response.json({ error: "This email domain can't receive mail. Please check your email address." }, { status: 400 });
     }
 
-    const meta = getSubmissionMeta(request);
-
     // Save to Firestore first so the admin dashboard gets the lead even if email fails
     let saved = false;
     try {
@@ -337,7 +238,7 @@ export async function POST(request) {
         phone,
         booking: { pickup, dropoff, date, time, vehicle, passengers, babySeat, returnTrip, notes },
         contact: null,
-        ipLocation: meta,
+        ipLocation: null,
         submittedFrom: '/book',
         createdAt: Timestamp.now(),
       });
@@ -355,7 +256,7 @@ export async function POST(request) {
         to: EMAIL,
         replyTo: email,
         subject: `New Booking: ${pickup} → ${dropoff} — ${name}`,
-        html: buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes, meta }),
+        html: buildBookingHtml({ name, email, phone, pickup, dropoff, date, time, passengers, vehicle, babySeat, returnTrip, notes }),
       });
     } catch (mailErr) {
       console.error('Booking email failed:', mailErr);

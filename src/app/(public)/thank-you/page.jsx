@@ -10,22 +10,10 @@ export default function ThankYouPage() {
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
-    // Fire conversion + lead events only for a real form submission.
-    // Each form writes a one-time id to sessionStorage before redirecting
-    // here; refreshes or direct visits to /thank-you have no id and must
-    // NOT count as leads. The id doubles as transaction_id so Google Ads
-    // deduplicates the conversion even if it somehow fires twice.
+    // Fire conversion + lead events on the thank-you view — every successful
+    // form submission lands here, so this is the single reliable conversion point.
     // Google Ads conversion action: "Submit lead form (1)"
     if (typeof window !== 'undefined') {
-      let leadId = null;
-      try {
-        leadId = sessionStorage.getItem('lead_submitted');
-        if (leadId) sessionStorage.removeItem('lead_submitted');
-      } catch {
-        // sessionStorage unavailable — treat as no submission.
-      }
-      if (!leadId) return;
-
       // On a hard load this effect can run before the gtag-init script, so
       // queue onto dataLayer — gtag.js replays it once loaded.
       window.dataLayer = window.dataLayer || [];
@@ -39,12 +27,10 @@ export default function ThankYouPage() {
         send_to: `${adsId}/WPyvCNK03owdEKbU8u5D`,
         value: 1.0,
         currency: 'AUD',
-        transaction_id: leadId,
       });
       window.gtag('event', 'generate_lead', {
         currency: 'AUD',
         value: 1.0,
-        transaction_id: leadId,
       });
     }
   }, []);
